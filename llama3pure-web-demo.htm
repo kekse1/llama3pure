@@ -155,6 +155,9 @@
       var chatHistory = []
       var replies = []
       var selectedReply = 0
+      var isFollowingReply = false
+
+      // set to true to enable auto-scroll to bottom when a response is being rendered.
       var useAutoScroll = false
 
       var MAX_TOKENS = -1
@@ -450,6 +453,9 @@
 
         rendering = true
 
+        // a new response starts pinned to the bottom (only if the feature is enabled)
+        isFollowingReply = useAutoScroll
+
         var formattedPrompt = prompt
         customPromptRegexRules.forEach(function (rule) {
           formattedPrompt = formattedPrompt.replace(rule.regex, rule.replacement)
@@ -508,7 +514,7 @@
 
         if (reply === "") {
           setTimeout(function () {
-            // REMOVING THE LAST USER PROMPT AND RE-ASKING
+            // removing the last user prompt and re-asking
             chatHistory.pop()
             ask(prompt, true)
           }, 500)
@@ -641,7 +647,7 @@
         var pixelsLeft = totalHeight - (scrollYPosition + viewportHeight)
         var finalDistance = Math.max(0, pixelsLeft)
 
-        if (finalDistance > 0 && (useAutoScroll || forcedScroll)) {
+        if (finalDistance > 0 && (isFollowingReply || forcedScroll)) {
           window.scrollTo({
             top: document.body.scrollHeight,
           })
@@ -666,7 +672,7 @@
         markdown = markdown.replace(
           /\[(.*?)\]\((.*?)\)/g,
           function (_match, text, url) {
-            linlinks.push('<a href="' + url + '" target="top">' + text + "</a>")
+            links.push('<a href="' + url + '" target="top">' + text + "</a>")
             return "%%CODELLAMALINK" + (links.length - 1) + "%%"
           }
         )
@@ -925,6 +931,28 @@
             )
           })
           content.appendChild(buttonDemo2)
+
+          // autoscroll yields to the user: while a response renders, the view stays
+          // pinned to the bottom only while the user is at (or very near) the bottom.
+          // scrolling up releases the pin; scrolling back down to the bottom resumes it.
+          // this is a pure position check on purpose: a direction-based check misreads a
+          // content reflow that clamps the scroll position (e.g. a short first answer
+          // whose height dips below the screen) as the user scrolling up, which used to
+          // kill autoscroll. a small threshold keeps it from fighting momentum scrolling.
+          window.addEventListener(
+            "scroll",
+            function () {
+              if (useAutoScroll) {
+                var AUTOSCROLL_BOTTOM_THRESHOLD = 8
+
+                var pixelsLeft =
+                  document.documentElement.scrollHeight -
+                  (window.scrollY + window.innerHeight)
+                isFollowingReply = pixelsLeft <= AUTOSCROLL_BOTTOM_THRESHOLD
+              }
+            },
+            { passive: true }
+          )
 
           inputTextbox.placeholder = t("placeholder")
           inputTextbox.value = ""
