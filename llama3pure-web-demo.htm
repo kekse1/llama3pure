@@ -666,7 +666,7 @@
         markdown = markdown.replace(
           /\[(.*?)\]\((.*?)\)/g,
           function (_match, text, url) {
-            links.push('<a href="' + url + '">' + text + "</a>")
+            linlinks.push('<a href="' + url + '" target="top">' + text + "</a>")
             return "%%CODELLAMALINK" + (links.length - 1) + "%%"
           }
         )
